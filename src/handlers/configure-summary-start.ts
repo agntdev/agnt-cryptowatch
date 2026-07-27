@@ -1,17 +1,12 @@
 import { Composer } from "grammy";
-
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "Configure summary", data: "configure_summary:start" }) if the toolkit exposes it.
-
-const composer = new Composer();
-
-composer.callbackQuery("configure_summary:start", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply("Set or adjust the morning summary time and opt-in/out");
-});
-
+import type { Ctx } from "../bot.js";
+import { profile } from "../domain.js";
+import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
+registerMainMenuItem({ label: "Morning summary", data: "configure_summary:start", order: 50 });
+const composer = new Composer<Ctx>();
+composer.callbackQuery("configure_summary:start", async (ctx) => { await ctx.answerCallbackQuery(); const settings = profile(ctx); await ctx.reply(settings.summaryEnabled ? `Your morning summary is on${settings.summaryTime ? ` for ${settings.summaryTime}` : ""}.` : "Morning summaries are off.", { reply_markup: inlineKeyboard([[inlineButton("Turn on", "summary:on"), inlineButton("Turn off", "summary:off")], [inlineButton("Set time", "summary:time")], [inlineButton("Back to menu", "menu:main")]]) }); });
+composer.callbackQuery("summary:on", async (ctx) => { await ctx.answerCallbackQuery(); profile(ctx).summaryEnabled = true; await ctx.reply("Morning summary is on. Set a time when you're ready."); });
+composer.callbackQuery("summary:off", async (ctx) => { await ctx.answerCallbackQuery(); profile(ctx).summaryEnabled = false; await ctx.reply("Morning summary is off."); });
+composer.callbackQuery("summary:time", async (ctx) => { await ctx.answerCallbackQuery(); ctx.session.flow = { kind: "summary-time" }; await ctx.reply("Send a local time like 08:00."); });
+composer.on("message:text", async (ctx, next) => { if (ctx.session.flow?.kind !== "summary-time") return next(); const time = ctx.message.text.trim(); if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(time)) { await ctx.reply("Use a time like 08:00."); return; } const settings = profile(ctx); settings.summaryTime = time.padStart(5, "0"); settings.summaryEnabled = true; ctx.session.flow = undefined; await ctx.reply(`Your morning summary is set for ${settings.summaryTime}.`); });
 export default composer;

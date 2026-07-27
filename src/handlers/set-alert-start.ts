@@ -1,17 +1,14 @@
 import { Composer } from "grammy";
-
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "Set alert", data: "set_alert:start" }) if the toolkit exposes it.
-
-const composer = new Composer();
-
-composer.callbackQuery("set_alert:start", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply("Open the Set alert flow to configure price threshold or percentage-based alerts");
-});
-
+import type { Alert, Ctx } from "../bot.js";
+import { findCoin, newAlertId, profile, watchlist } from "../domain.js";
+import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
+registerMainMenuItem({ label: "Set alert", data: "set_alert:start", order: 45 });
+const composer = new Composer<Ctx>();
+composer.callbackQuery("set_alert:start", async (ctx) => { await ctx.answerCallbackQuery(); const coins = watchlist(ctx); if (!coins.length) { await ctx.reply("Add a coin before setting an alert.", { reply_markup: inlineKeyboard([[inlineButton("Add coin", "add_coin:start")]]) }); return; } await ctx.reply("Choose a coin for the alert.", { reply_markup: inlineKeyboard(coins.map((coin) => [inlineButton(coin.ticker, `alert:coin:${coin.ticker}`)])) }); });
+composer.callbackQuery(/^alert:coin:([A-Z0-9]{1,12})$/, async (ctx) => { await ctx.answerCallbackQuery(); const ticker = ctx.match![1]; if (!findCoin(ctx, ticker)) { await ctx.reply("That coin is no longer on your watchlist."); return; } ctx.session.flow = { kind: "alert-type", ticker }; await ctx.reply(`What kind of ${ticker} alert do you want?`, { reply_markup: inlineKeyboard([[inlineButton("Price threshold", "alert:type:threshold"), inlineButton("Percentage move", "alert:type:percent")]]) }); });
+composer.callbackQuery(/^alert:type:(threshold|percent)$/, async (ctx) => { await ctx.answerCallbackQuery(); const type = ctx.match![1] as "threshold" | "percent"; const ticker = ctx.session.flow?.ticker; if (!ticker) { await ctx.reply("Choose a coin first."); return; } ctx.session.flow = { kind: "alert-value", ticker, type }; await ctx.reply(type === "threshold" ? "Send the price that should trigger this alert." : "Send the percentage move that should trigger this alert, like 5."); });
+composer.callbackQuery("alert:confirm", async (ctx) => { await ctx.answerCallbackQuery(); const flow = ctx.session.flow; if (!flow?.ticker || !flow.type || flow.value === undefined) { await ctx.reply("That alert setup expired. Start again from Set alert."); return; } const coin = findCoin(ctx, flow.ticker); if (!coin) { await ctx.reply("That coin is no longer on your watchlist."); return; } const alert: Alert = { id: newAlertId(flow.ticker, flow.type, flow.value), ticker: flow.ticker, type: flow.type, value: flow.value, timeframeHours: flow.timeframeHours, firedCount: 0 }; coin.alerts.push(alert); ctx.session.flow = undefined; await ctx.reply(`${flow.ticker} ${flow.type === "threshold" ? `will alert at ${flow.value}` : `will alert on a ${flow.value}% move in ${flow.timeframeHours ?? 1} hour`}.`); });
+composer.callbackQuery("alert:cancel", async (ctx) => { await ctx.answerCallbackQuery(); ctx.session.flow = undefined; await ctx.reply("Alert setup was cancelled."); });
+composer.on("message:text", async (ctx, next) => { const flow = ctx.session.flow; if (flow?.kind !== "alert-value" || !flow.ticker || !flow.type) return next(); const value = Number(ctx.message.text.trim()); if (!Number.isFinite(value) || value <= 0) { await ctx.reply("Send a number greater than zero."); return; } if (flow.type === "percent") { ctx.session.flow = { ...flow, kind: "alert-timeframe", value }; await ctx.reply("Send the timeframe in hours, or send 1 for the default."); return; } ctx.session.flow = { ...flow, kind: "alert-confirm", value }; await ctx.reply(`Alert when ${flow.ticker} reaches ${value}?`, { reply_markup: inlineKeyboard([[inlineButton("Create alert", "alert:confirm"), inlineButton("Cancel", "alert:cancel")]]) }); });
+composer.on("message:text", async (ctx, next) => { const flow = ctx.session.flow; if (flow?.kind !== "alert-timeframe" || flow.value === undefined) return next(); const hours = Number(ctx.message.text.trim()); if (!Number.isFinite(hours) || hours <= 0 || hours > 8760) { await ctx.reply("Send a timeframe in hours, like 1."); return; } ctx.session.flow = { ...flow, kind: "alert-confirm", timeframeHours: hours }; await ctx.reply(`Alert on a ${flow.value}% ${flow.ticker} move in ${hours} hour${hours === 1 ? "" : "s"}?`, { reply_markup: inlineKeyboard([[inlineButton("Create alert", "alert:confirm"), inlineButton("Cancel", "alert:cancel")]]) }); });
 export default composer;

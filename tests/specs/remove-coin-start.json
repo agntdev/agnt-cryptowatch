@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Open the Remove coin flow with a list of current watchlist items"
+              "text": "Your watchlist is empty — add a coin first."
             }
           }
         ],
@@ -15,6 +15,17 @@
           "callback": "remove_coin:start"
         }
       }
+    ]
+  }
+  ,{
+    "name": "Remove a watchlist coin after confirming",
+    "steps": [
+      { "send": { "callback": "add_coin:start" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Choose a coin to add, or type its ticker." } }] },
+      { "send": { "callback": "coin:add:BTC" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Add a nickname for BTC, or tap Use ticker." } }] },
+      { "send": { "callback": "coin:save:BTC" }, "expect": [{ "method": "sendMessage", "payload": { "text": "BTC is on your watchlist." } }] },
+      { "send": { "callback": "remove_coin:start" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Choose a coin to remove." } }] },
+      { "send": { "callback": "coin:remove:BTC" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Remove BTC and its alerts?" } }] },
+      { "send": { "callback": "coin:remove-yes:BTC" }, "expect": [{ "method": "sendMessage", "payload": { "text": "BTC was removed with its alerts." } }] }
     ]
   }
 ]
