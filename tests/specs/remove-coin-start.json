@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Remove coin",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Open the Remove coin flow with a list of current watchlist items"
+            }
+          }
+        ],
+        "send": {
+          "callback": "remove_coin:start"
+        }
+      }
+    ]
+  }
+]
