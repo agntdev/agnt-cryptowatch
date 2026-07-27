@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Open the Add coin flow with buttons for common tickers and free-text entry"
+              "text": "Choose a coin to add, or type its ticker."
             }
           }
         ],
@@ -15,6 +15,14 @@
           "callback": "add_coin:start"
         }
       }
+    ]
+  }
+  ,{
+    "name": "Add BTC to a watchlist",
+    "steps": [
+      { "send": { "callback": "add_coin:start" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Choose a coin to add, or type its ticker." } }] },
+      { "send": { "callback": "coin:add:BTC" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Add a nickname for BTC, or tap Use ticker." } }] },
+      { "send": { "callback": "coin:save:BTC" }, "expect": [{ "method": "sendMessage", "payload": { "text": "BTC is on your watchlist." } }] }
     ]
   }
 ]

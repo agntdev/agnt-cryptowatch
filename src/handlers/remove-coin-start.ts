@@ -1,17 +1,10 @@
 import { Composer } from "grammy";
-
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "Remove coin", data: "remove_coin:start" }) if the toolkit exposes it.
-
-const composer = new Composer();
-
-composer.callbackQuery("remove_coin:start", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply("Open the Remove coin flow with a list of current watchlist items");
-});
-
+import type { Ctx } from "../bot.js";
+import { displayCoin, findCoin, removeCoin, watchlist } from "../domain.js";
+import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
+registerMainMenuItem({ label: "Remove coin", data: "remove_coin:start", order: 30 });
+const composer = new Composer<Ctx>();
+composer.callbackQuery("remove_coin:start", async (ctx) => { await ctx.answerCallbackQuery(); const list = watchlist(ctx); if (!list.length) { await ctx.reply("Your watchlist is empty — add a coin first."); return; } await ctx.reply("Choose a coin to remove.", { reply_markup: inlineKeyboard([...list.map((coin) => [inlineButton(displayCoin(coin), `coin:remove:${coin.ticker}`)]), [inlineButton("Back to menu", "menu:main")]]) }); });
+composer.callbackQuery(/^coin:remove:([A-Z0-9]{1,12})$/, async (ctx) => { await ctx.answerCallbackQuery(); const ticker = ctx.match![1]; if (!findCoin(ctx, ticker)) { await ctx.reply("That coin is no longer on your watchlist."); return; } await ctx.reply(`Remove ${ticker} and its alerts?`, { reply_markup: inlineKeyboard([[inlineButton("Remove", `coin:remove-yes:${ticker}`), inlineButton("Keep it", "view_list:start")]]) }); });
+composer.callbackQuery(/^coin:remove-yes:([A-Z0-9]{1,12})$/, async (ctx) => { await ctx.answerCallbackQuery(); const ticker = ctx.match![1]; await ctx.reply(removeCoin(ctx, ticker) ? `${ticker} was removed with its alerts.` : "That coin is no longer on your watchlist."); });
 export default composer;

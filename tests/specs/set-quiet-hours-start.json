@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Configure start and end times for quiet hours"
+              "text": "Choose when alerts should stay quiet."
             }
           }
         ],
@@ -15,6 +15,15 @@
           "callback": "set_quiet_hours:start"
         }
       }
+    ]
+  }
+  ,{
+    "name": "Set quiet hours",
+    "steps": [
+      { "send": { "callback": "set_quiet_hours:start" }, "expect": [{ "method": "sendMessage" }] },
+      { "send": { "callback": "quiet:start" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Send the quiet-hours start time, like 22:00." } }] },
+      { "send": { "text": "22:00" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the end time, like 07:00." } }] },
+      { "send": { "text": "07:00" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Quiet hours are set for 22:00–07:00." } }] }
     ]
   }
 ]

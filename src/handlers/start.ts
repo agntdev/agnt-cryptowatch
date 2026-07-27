@@ -1,24 +1,25 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
-import { mainMenuKeyboard } from "../toolkit/index.js";
-
-// The /start handler renders the bot's MAIN MENU — the primary way users operate
-// a button-first bot. A feature adds its own button by calling
-// `registerMainMenuItem(...)` in its own `src/handlers/<slug>.ts`; this handler
-// renders whatever is registered (plus a Help button), so you do NOT edit this
-// file to add a feature. Send ONE message — no placeholder line above the menu.
+import { profile } from "../domain.js";
+import { inlineButton, inlineKeyboard, mainMenuKeyboard } from "../toolkit/index.js";
 const composer = new Composer<Ctx>();
-
-const WELCOME = "👋 Welcome! Tap a button below to get started.";
-
+const welcome = "Track crypto prices, keep a private watchlist, and get alerts without the noise.";
 composer.command("start", async (ctx) => {
-  await ctx.reply(WELCOME, { reply_markup: mainMenuKeyboard() });
+  const settings = profile(ctx);
+  if (!settings.timezone) {
+    ctx.session.flow = { kind: "timezone" };
+    await ctx.reply(`${welcome}\n\nWhat timezone are you in? Send an IANA name like Europe/London, or tap Skip.`, { reply_markup: inlineKeyboard([[inlineButton("Skip for now", "timezone:skip")]]) });
+    return;
+  }
+  await ctx.reply(welcome, { reply_markup: mainMenuKeyboard() });
 });
-
-// "Back to menu" — re-render the main menu in place from any sub-view.
-composer.callbackQuery("menu:main", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.editMessageText(WELCOME, { reply_markup: mainMenuKeyboard() });
+composer.callbackQuery("timezone:skip", async (ctx) => { await ctx.answerCallbackQuery(); profile(ctx).timezone = "UTC"; ctx.session.flow = undefined; await ctx.editMessageText(welcome, { reply_markup: mainMenuKeyboard() }); });
+composer.on("message:text", async (ctx, next) => {
+  if (ctx.session.flow?.kind !== "timezone") return next();
+  const value = ctx.message.text.trim();
+  try { Intl.DateTimeFormat(undefined, { timeZone: value }); } catch { await ctx.reply("I couldn't use that timezone. Try Europe/London, or tap Skip."); return; }
+  profile(ctx).timezone = value; ctx.session.flow = undefined;
+  await ctx.reply(welcome, { reply_markup: mainMenuKeyboard() });
 });
-
+composer.callbackQuery("menu:main", async (ctx) => { await ctx.answerCallbackQuery(); await ctx.editMessageText(welcome, { reply_markup: mainMenuKeyboard() }); });
 export default composer;

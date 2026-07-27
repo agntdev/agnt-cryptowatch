@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Request current price for a specific coin or all coins on the watchlist"
+              "text": "Send a ticker, or send all for your watchlist."
             }
           }
         ],

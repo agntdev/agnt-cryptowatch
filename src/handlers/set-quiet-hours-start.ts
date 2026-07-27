@@ -1,17 +1,11 @@
 import { Composer } from "grammy";
-
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "Set quiet hours", data: "set_quiet_hours:start" }) if the toolkit exposes it.
-
-const composer = new Composer();
-
-composer.callbackQuery("set_quiet_hours:start", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply("Configure start and end times for quiet hours");
-});
-
+import type { Ctx } from "../bot.js";
+import { profile } from "../domain.js";
+import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
+registerMainMenuItem({ label: "Quiet hours", data: "set_quiet_hours:start", order: 60 });
+const composer = new Composer<Ctx>();
+const valid = (value: string) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(value);
+composer.callbackQuery("set_quiet_hours:start", async (ctx) => { await ctx.answerCallbackQuery(); const settings = profile(ctx); await ctx.reply(settings.quietStart && settings.quietEnd ? `Quiet hours: ${settings.quietStart}–${settings.quietEnd}.` : "Choose when alerts should stay quiet.", { reply_markup: inlineKeyboard([[inlineButton("Set quiet hours", "quiet:start")], [inlineButton("Back to menu", "menu:main")]]) }); });
+composer.callbackQuery("quiet:start", async (ctx) => { await ctx.answerCallbackQuery(); ctx.session.flow = { kind: "quiet-start" }; await ctx.reply("Send the quiet-hours start time, like 22:00."); });
+composer.on("message:text", async (ctx, next) => { const kind = ctx.session.flow?.kind; if (kind !== "quiet-start" && kind !== "quiet-end") return next(); const time = ctx.message.text.trim(); if (!valid(time)) { await ctx.reply("Use a time like 22:00."); return; } if (kind === "quiet-start") { profile(ctx).quietStart = time.padStart(5, "0"); ctx.session.flow = { kind: "quiet-end" }; await ctx.reply("Now send the end time, like 07:00."); return; } profile(ctx).quietEnd = time.padStart(5, "0"); ctx.session.flow = undefined; const p = profile(ctx); await ctx.reply(`Quiet hours are set for ${p.quietStart}–${p.quietEnd}.`); });
 export default composer;
