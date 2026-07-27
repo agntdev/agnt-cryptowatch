@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Set quiet hours",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Configure start and end times for quiet hours"
+            }
+          }
+        ],
+        "send": {
+          "callback": "set_quiet_hours:start"
+        }
+      }
+    ]
+  }
+]
