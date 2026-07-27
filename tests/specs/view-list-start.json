@@ -1,0 +1,20 @@
+[
+  {
+    "name": "View list",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Display the user's current watchlist with options to edit or remove items"
+            }
+          }
+        ],
+        "send": {
+          "callback": "view_list:start"
+        }
+      }
+    ]
+  }
+]
