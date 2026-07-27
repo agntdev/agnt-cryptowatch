@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Add coin",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Open the Add coin flow with buttons for common tickers and free-text entry"
+            }
+          }
+        ],
+        "send": {
+          "callback": "add_coin:start"
+        }
+      }
+    ]
+  }
+]
